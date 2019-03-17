@@ -1,28 +1,6 @@
-from sklearn.cluster import KMeans, MiniBatchKMeans
-from skimage.feature import hog
-from skimage import exposure
-from skimage.transform import resize
-
 import os
 import numpy as np
-
-
-def HOG_descriptor(img):
-    img = resize(img, output_shape=(430, 640), 
-                 anti_aliasing=True, mode='reflect')
-    
-    if len(img.shape)==3 and img.shape[2]==3:
-        multichannel = True
-    else:
-        multichannel = False
-    
-    fd, hog_img = hog(img, orientations=6, pixels_per_cell=(8, 8),
-                      cells_per_block=(2, 2), visualize=True, 
-                      multichannel=multichannel, block_norm='L2-Hys',
-                      feature_vector=False)
-    h, w, h_block, w_block, ori_size = fd.shape
-    fd = np.reshape(fd, (h, w, h_block*w_block*ori_size))
-    return fd, hog_img
+import cv2 as cv
 
 def find_ped_img_idx(skip=1):
     img_ped_idx = set()
@@ -34,11 +12,6 @@ def find_ped_img_idx(skip=1):
     
     return img_ped_idx[::skip]
 
-def built_codebook(features):
-    kmeans = MiniBatchKMeans(n_clusters=64, batch_size=500, n_init=10)
-    #kmeans = KMeans(n_clusters=64, random_state=0, n_jobs=-1)
-    kmeans.fit(features)
-    return kmeans
 
 def read_gt(filename):
     """Read gt and create list of bb-s"""
@@ -52,3 +25,19 @@ def one_hot_encoder(data, nb_classes):
     """Convert an iterable of indices to one-hot encoded labels."""
     targets = np.array(data).reshape(-1)
     return np.eye(nb_classes)[targets]
+
+def unpackbits(x, num_bits):
+    xshape = list(x.shape)
+    x = x.reshape([-1,1])
+    to_and = 2**np.arange(num_bits).reshape([1,num_bits])
+    return (x & to_and).astype(bool).astype(np.int8).reshape(xshape + [num_bits])
+
+def load_image(img_path):
+    for path in img_path:
+        img = cv.imread(path)
+        
+        img_name = path.split('/')[-1]
+        img_name = img_name.split('.')[0]
+        img_id = int(img_name)
+        
+        yield img_id, img
